@@ -82,6 +82,204 @@
             color: #8B5CF6;
         }
 
+        /* ==========================================
+           FRAMER MOTION STYLE ANIMATIONS
+           ========================================== */
+
+        /* Fade In Up Animation */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Fade In Scale Animation */
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* Slide In Left */
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Slide In Right */
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Animation Classes */
+        .animate-fade-in-up {
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+
+        .animate-fade-in-scale {
+            animation: fadeInScale 0.4s ease-out forwards;
+        }
+
+        .animate-slide-in-left {
+            animation: slideInLeft 0.5s ease-out forwards;
+        }
+
+        .animate-slide-in-right {
+            animation: slideInRight 0.5s ease-out forwards;
+        }
+
+        /* Stagger Animation Delays */
+        .stagger-1 {
+            animation-delay: 0.05s;
+            opacity: 0;
+        }
+
+        .stagger-2 {
+            animation-delay: 0.1s;
+            opacity: 0;
+        }
+
+        .stagger-3 {
+            animation-delay: 0.15s;
+            opacity: 0;
+        }
+
+        .stagger-4 {
+            animation-delay: 0.2s;
+            opacity: 0;
+        }
+
+        .stagger-5 {
+            animation-delay: 0.25s;
+            opacity: 0;
+        }
+
+        .stagger-6 {
+            animation-delay: 0.3s;
+            opacity: 0;
+        }
+
+        .stagger-7 {
+            animation-delay: 0.35s;
+            opacity: 0;
+        }
+
+        .stagger-8 {
+            animation-delay: 0.4s;
+            opacity: 0;
+        }
+
+        /* Hover Scale Effect */
+        .hover-scale {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .hover-scale:hover {
+            transform: scale(1.02);
+        }
+
+        /* Hover Lift Effect */
+        .hover-lift {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .hover-lift:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px -10px rgba(139, 92, 246, 0.3);
+        }
+
+        /* Pulse Glow Animation */
+        @keyframes pulseGlow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 40px rgba(139, 92, 246, 0.5);
+            }
+        }
+
+        .animate-pulse-glow {
+            animation: pulseGlow 2s ease-in-out infinite;
+        }
+
+        /* Smooth Button Press */
+        .btn-press {
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+
+        .btn-press:active {
+            transform: scale(0.97);
+        }
+
+        /* Image Reveal Animation */
+        @keyframes imageReveal {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+                filter: blur(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+                filter: blur(0);
+            }
+        }
+
+        .animate-image-reveal {
+            animation: imageReveal 0.6s ease-out forwards;
+        }
+
+        /* Shimmer Loading Effect */
+        @keyframes shimmer {
+            0% {
+                background-position: -200% 0;
+            }
+
+            100% {
+                background-position: 200% 0;
+            }
+        }
+
+        .shimmer {
+            background: linear-gradient(90deg,
+                    rgba(255, 255, 255, 0) 0%,
+                    rgba(255, 255, 255, 0.1) 50%,
+                    rgba(255, 255, 255, 0) 100%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
         /* Toast Animation */
         @keyframes slideIn {
             from {
@@ -134,8 +332,8 @@
 <body class="min-h-screen font-sans antialiased overflow-hidden">
 
     <!-- Header -->
-    <header class="h-14 border-b border-white/5 flex items-center justify-between px-6">
-        <div class="flex items-center gap-3">
+    <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 animate-fade-in-up">
+        <div class="flex items-center gap-3 hover-scale">
             <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
                 <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
             </div>
@@ -147,13 +345,13 @@
     <main class="h-[calc(100vh-3.5rem)] flex">
 
         <!-- Left Panel: Controls -->
-        <aside class="w-[340px] border-r border-white/5 p-5 flex flex-col gap-5 overflow-y-auto">
+        <aside class="w-[340px] border-r border-white/5 p-5 flex flex-col gap-5 overflow-y-auto animate-slide-in-left">
 
             <!-- AI Model Selector -->
-            <div class="space-y-2">
+            <div class="space-y-2 animate-fade-in-up stagger-1">
                 <label class="text-[11px] font-semibold uppercase tracking-widest text-muted">AI Model</label>
                 <button id="modelBtn"
-                    class="w-full flex items-center justify-between gap-3 p-3 rounded-xl bg-card border border-white/5 hover:border-primary/50 transition-all group">
+                    class="w-full flex items-center justify-between gap-3 p-3 rounded-xl bg-card border border-white/5 hover:border-primary/50 transition-all group hover-lift btn-press">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
                             <i data-lucide="cpu" class="w-4 h-4 text-primary"></i>
@@ -169,7 +367,7 @@
             </div>
 
             <!-- Subject Input -->
-            <div class="space-y-2">
+            <div class="space-y-2 animate-fade-in-up stagger-2">
                 <label class="text-[11px] font-semibold uppercase tracking-widest text-muted">Subject</label>
                 <div class="relative">
                     <textarea id="promptInput" rows="3"
@@ -182,7 +380,7 @@
             </div>
 
             <!-- Art Style Selector -->
-            <div class="space-y-2">
+            <div class="space-y-2 animate-fade-in-up stagger-3">
                 <label class="text-[11px] font-semibold uppercase tracking-widest text-muted">Art Style</label>
                 <div id="styleContainer" class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
                     <button
@@ -248,7 +446,8 @@
                 </div>
             </div>
 
-            <div class="space-y-2 flex-1 flex flex-col min-h-[200px]">
+            <!-- Head Pose Section -->
+            <div class="space-y-2 flex-1 flex flex-col min-h-[200px] animate-fade-in-up stagger-4">
                 <div class="flex items-center justify-between">
                     <label class="text-[11px] font-semibold uppercase tracking-widest text-muted">Head Pose</label>
                     <button id="resetHeadBtn" class="flex items-center gap-1 text-[10px] text-primary hover:underline">
@@ -285,7 +484,7 @@
             </div>
 
             <!-- Camera Controls -->
-            <div class="space-y-3">
+            <div class="space-y-3 animate-fade-in-up stagger-5">
                 <label class="text-[11px] font-semibold uppercase tracking-widest text-muted">Camera Controls</label>
 
                 <!-- Camera Rotation -->
@@ -331,7 +530,7 @@
 
             <!-- Generate Button -->
             <button id="generateBtn"
-                class="w-full h-12 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-[0.98]">
+                class="w-full h-12 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-[0.98] animate-fade-in-up stagger-6 animate-pulse-glow btn-press">
                 <span id="btnText">Generate Portrait</span>
                 <i data-lucide="wand-2" id="btnIcon" class="w-4 h-4"></i>
                 <div id="btnSpinner" class="hidden w-4 h-4 spinner"></div>
@@ -340,10 +539,10 @@
         </aside>
 
         <!-- Right Panel: Output -->
-        <section class="flex-1 p-5 flex flex-col gap-4 overflow-hidden">
+        <section class="flex-1 p-5 flex flex-col gap-4 overflow-hidden animate-slide-in-right">
 
             <!-- Prompt Preview -->
-            <div class="glass rounded-xl p-4 space-y-2">
+            <div class="glass rounded-xl p-4 space-y-2 animate-fade-in-up stagger-2 hover-lift">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2 text-xs">
                         <i data-lucide="terminal" class="w-4 h-4 text-primary shrink-0"></i>
@@ -362,7 +561,7 @@
 
             <!-- Image Display Area -->
             <div
-                class="flex-1 rounded-2xl bg-black/50 border border-white/5 relative overflow-hidden flex items-center justify-center group">
+                class="flex-1 rounded-2xl bg-black/50 border border-white/5 relative overflow-hidden flex items-center justify-center group animate-fade-in-scale stagger-3">
 
                 <!-- Placeholder -->
                 <div id="placeholder" class="text-center p-8">
@@ -1025,6 +1224,9 @@ CAMERA SETTINGS:
                     setLoading(false);
                     els.placeholder.classList.add('hidden');
                     els.generatedImage.classList.remove('hidden');
+                    // Add reveal animation
+                    els.generatedImage.classList.add('animate-image-reveal');
+                    setTimeout(() => els.generatedImage.classList.remove('animate-image-reveal'), 600);
                     showToast('Generation Complete', 'Your portrait is ready!', 'success');
                 };
                 els.generatedImage.onerror = () => {
