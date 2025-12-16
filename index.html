@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PortraitGen.AI | AI Portrait Generator</title>
+
+    <!-- Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://js.puter.com/v2/"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            DEFAULT: '#8B5CF6',
+                            foreground: '#FFFFFF',
+                        },
+                        background: '#0a0a0f',
+                        card: '#111118',
+                        border: '#1e1e2e',
+                        muted: '#71717a',
+                    },
+                },
+            },
+        }
+    </script>
+
+    <style>
+        body {
+            background: #0a0a0f;
+            color: #fafafa;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+
+        /* Glass effect */
+        .glass {
+            background: rgba(17, 17, 24, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Three.js Canvas */
+        #headCanvas canvas {
+            border-radius: 12px;
+        }
+
+        /* Style Buttons */
+        .style-btn.active {
+            border-color: #8B5CF6;
+            background: rgba(139, 92, 246, 0.15);
+            color: #8B5CF6;
+        }
+
+        /* Toast Animation */
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        .toast-enter {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .toast-exit {
+            animation: slideOut 0.3s ease-out;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="min-h-screen font-sans antialiased overflow-hidden">
+
+    <!-- Header -->
+    <header class="h-14 border-b border-white/5 flex items-center justify-between px-6">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
+                <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
+            </div>
+            <span class="font-semibold text-lg tracking-tight">PortraitGen.AI</span>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <main class="h-[calc(100vh-3.5rem)] flex">
+
+        <!-- Left Panel: Controls -->
+        <aside class="w-[340px] border-r border-white/5 p-5 flex flex-col gap-5 overflow-y-auto">
+
+            <!-- AI Model Selector -->
+            <div class="space-y-2">
+                <label class="text-[11px] font-semibold uppercase tracking-widest text-muted">AI Model</label>
+                <button id="modelBtn"
+                    class="w-full flex items-center justify-between gap-3 p-3 rounded-xl bg-card border border-white/5 hover:border-primary/50 transition-all group">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <i data-lucide="cpu" class="w-4 h-4 text-primary"></i>
+                        </div>
+                        <div class="text-left">
+                            <div id="selectedModelName" class="text-sm font-medium">GPT Image 1</div>
+                            <div class="text-[10px] text-muted">Fast & Free Generation</div>
+                        </div>
+                    </div>
+                    <i data-lucide="chevron-down"
+                        class="w-4 h-4 text-muted group-hover:text-white transition-colors"></i>
+                </button>
+            </div>
+
+            <!-- Subject Input -->
+            <div class="space-y-2">
+                <label class="text-[11px] font-semibold uppercase tracking-widest text-muted">Subject</label>
+                <div class="relative">
+                    <textarea id="promptInput" rows="3"
+                        class="w-full p-3 rounded-xl bg-card border border-white/5 text-sm placeholder:text-muted/50 focus:outline-none focus:border-primary/50 resize-none transition-all"
+                        placeholder="Describe your character (e.g., A cyberpunk samurai in neon rain)..."></textarea>
+                    <div class="absolute bottom-2 right-3 text-[10px] text-muted/50">
+                        <span id="charCount">0</span>/1000
+                    </div>
+                </div>
+            </div>
+
+            <!-- Art Style Selector -->
+            <div class="space-y-2">
+                <label class="text-[11px] font-semibold uppercase tracking-widest text-muted">Art Style</label>
+                <div id="styleContainer" class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                    <button
+                        class="style-btn active shrink-0 px-3 py-2 rounded-lg border border-white/10 bg-card text-xs font-medium whitespace-nowrap transition-all hover:border-primary/50"
+                        data-style="photorealistic"
+                        data-prompt="hyperrealistic photograph, extremely detailed lighting and textures, DSLR quality, 8K resolution, sharp focus, studio photography">
+                        📷 Photorealistic
+                    </button>
+                    <button
+                        class="style-btn shrink-0 px-3 py-2 rounded-lg border border-white/10 bg-card text-xs font-medium whitespace-nowrap transition-all hover:border-primary/50"
+                        data-style="anime"
+                        data-prompt="anime style, Japanese manga aesthetic, clean lines, vibrant colors, expressive character, Studio Ghibli inspired, MAPPA quality animation">
+                        🎌 Anime
+                    </button>
+                    <button
+                        class="style-btn shrink-0 px-3 py-2 rounded-lg border border-white/10 bg-card text-xs font-medium whitespace-nowrap transition-all hover:border-primary/50"
+                        data-style="3d-animation"
+                        data-prompt="3D animated character, Pixar Disney style, smooth textures, colorful, CGI render, soft lighting, family-friendly animation aesthetic">
+                        ✨ 3D Pixar
+                    </button>
+                    <button
+                        class="style-btn shrink-0 px-3 py-2 rounded-lg border border-white/10 bg-card text-xs font-medium whitespace-nowrap transition-all hover:border-primary/50"
+                        data-style="digital-painting"
+                        data-prompt="digital painting, artistic brushstrokes, painterly style, strong light and shadow contrast, concept art quality, ArtStation trending">
+                        🎨 Digital Art
+                    </button>
+                    <button
+                        class="style-btn shrink-0 px-3 py-2 rounded-lg border border-white/10 bg-card text-xs font-medium whitespace-nowrap transition-all hover:border-primary/50"
+                        data-style="concept-art"
+                        data-prompt="concept art, character design, game art style, atmospheric mood, imaginative, professional illustration for game or film development">
+                        🖌️ Concept Art
+                    </button>
+                    <button
+                        class="style-btn shrink-0 px-3 py-2 rounded-lg border border-white/10 bg-card text-xs font-medium whitespace-nowrap transition-all hover:border-primary/50"
+                        data-style="cartoon"
+                        data-prompt="western cartoon style, bold outlines, simple shapes, vibrant flat colors, Rick and Morty or Simpsons inspired, clean vector art">
+                        🦸 Cartoon
+                    </button>
+                    <button
+                        class="style-btn shrink-0 px-3 py-2 rounded-lg border border-white/10 bg-card text-xs font-medium whitespace-nowrap transition-all hover:border-primary/50"
+                        data-style="pixel-art"
+                        data-prompt="pixel art style, retro video game aesthetic, 16-bit graphics, pixelated, nostalgic, classic game sprite look">
+                        👾 Pixel Art
+                    </button>
+                    <button
+                        class="style-btn shrink-0 px-3 py-2 rounded-lg border border-white/10 bg-card text-xs font-medium whitespace-nowrap transition-all hover:border-primary/50"
+                        data-style="cinematic"
+                        data-prompt="cinematic shot, dramatic composition, movie-like lighting, film color grading, anamorphic lens, widescreen frame, blockbuster film still">
+                        🎬 Cinematic
+                    </button>
+                    <button
+                        class="style-btn shrink-0 px-3 py-2 rounded-lg border border-white/10 bg-card text-xs font-medium whitespace-nowrap transition-all hover:border-primary/50"
+                        data-style="cyberpunk"
+                        data-prompt="cyberpunk aesthetic, neon lights, futuristic technology, dark atmosphere, sci-fi, blade runner inspired, glowing accents, dystopian cityscape">
+                        🌃 Cyberpunk
+                    </button>
+                    <button
+                        class="style-btn shrink-0 px-3 py-2 rounded-lg border border-white/10 bg-card text-xs font-medium whitespace-nowrap transition-all hover:border-primary/50"
+                        data-style="oil-painting"
+                        data-prompt="classical oil painting style, traditional art, rich textures, impressionist brushwork, museum quality, fine art masterpiece, renaissance inspired">
+                        🖼️ Oil Painting
+                    </button>
+                </div>
+            </div>
+
+            <div class="space-y-2 flex-1 flex flex-col min-h-[200px]">
+                <div class="flex items-center justify-between">
+                    <label class="text-[11px] font-semibold uppercase tracking-widest text-muted">Head Pose</label>
+                    <button id="resetHeadBtn" class="flex items-center gap-1 text-[10px] text-primary hover:underline">
+                        <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Reset
+                    </button>
+                </div>
+                <div class="relative flex-1 rounded-xl bg-black border border-white/5 overflow-hidden min-h-[180px]">
+                    <!-- Three.js Canvas Container -->
+                    <div id="headCanvas" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+
+                    <!-- Pose Indicators -->
+                    <div
+                        class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent flex items-end justify-between pointer-events-none">
+                        <div class="flex gap-5">
+                            <div>
+                                <div class="text-[9px] uppercase text-muted font-bold tracking-widest">Yaw</div>
+                                <div class="flex items-baseline gap-1.5">
+                                    <span id="yawDegree" class="text-sm font-mono text-primary font-bold">0°</span>
+                                    <span id="yawValue" class="text-[10px] font-mono text-muted">FRONT</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-[9px] uppercase text-muted font-bold tracking-widest">Pitch</div>
+                                <div class="flex items-baseline gap-1.5">
+                                    <span id="pitchDegree" class="text-sm font-mono text-primary font-bold">0°</span>
+                                    <span id="pitchValue" class="text-[10px] font-mono text-muted">LEVEL</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <i data-lucide="move-3d" class="w-4 h-4 text-white/20"></i>
+                </div>
+            </div>
+            </div>
+
+            <!-- Camera Controls -->
+            <div class="space-y-3">
+                <label class="text-[11px] font-semibold uppercase tracking-widest text-muted">Camera Controls</label>
+
+                <!-- Camera Rotation -->
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] text-muted">Rotation (Orbit)</span>
+                        <span id="camRotationValue" class="text-[10px] font-mono text-primary">0°</span>
+                    </div>
+                    <input type="range" id="camRotation" min="-180" max="180" value="0"
+                        class="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary">
+                </div>
+
+                <!-- Camera Distance -->
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] text-muted">Distance (Zoom)</span>
+                        <span id="camDistanceValue" class="text-[10px] font-mono text-primary">Medium</span>
+                    </div>
+                    <input type="range" id="camDistance" min="0" max="4" value="2"
+                        class="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary">
+                </div>
+
+                <!-- Vertical Angle -->
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] text-muted">Vertical Angle</span>
+                        <span id="camAngleValue" class="text-[10px] font-mono text-primary">Eye Level</span>
+                    </div>
+                    <input type="range" id="camAngle" min="-2" max="2" value="0"
+                        class="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary">
+                </div>
+
+                <!-- Lens Type -->
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] text-muted">Lens Type</span>
+                        <span id="camLensValue" class="text-[10px] font-mono text-primary">Standard 50mm</span>
+                    </div>
+                    <input type="range" id="camLens" min="0" max="3" value="1"
+                        class="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary">
+                </div>
+            </div>
+
+            <!-- Generate Button -->
+            <button id="generateBtn"
+                class="w-full h-12 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-[0.98]">
+                <span id="btnText">Generate Portrait</span>
+                <i data-lucide="wand-2" id="btnIcon" class="w-4 h-4"></i>
+                <div id="btnSpinner" class="hidden w-4 h-4 spinner"></div>
+            </button>
+
+        </aside>
+
+        <!-- Right Panel: Output -->
+        <section class="flex-1 p-5 flex flex-col gap-4 overflow-hidden">
+
+            <!-- Prompt Preview -->
+            <div class="glass rounded-xl p-4 space-y-2">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2 text-xs">
+                        <i data-lucide="terminal" class="w-4 h-4 text-primary shrink-0"></i>
+                        <span class="text-primary font-semibold uppercase tracking-wider">Generated Prompt</span>
+                    </div>
+                    <button id="copyPromptBtn"
+                        class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-xs text-muted hover:text-white transition-all">
+                        <i data-lucide="copy" class="w-3 h-3"></i>
+                        <span>Copy</span>
+                    </button>
+                </div>
+                <textarea id="promptPreview" readonly rows="5"
+                    class="w-full bg-transparent text-xs font-mono text-white/80 leading-relaxed resize-none focus:outline-none overflow-y-auto scrollbar-thin"
+                    style="max-height: 100px;">...</textarea>
+            </div>
+
+            <!-- Image Display Area -->
+            <div
+                class="flex-1 rounded-2xl bg-black/50 border border-white/5 relative overflow-hidden flex items-center justify-center group">
+
+                <!-- Placeholder -->
+                <div id="placeholder" class="text-center p-8">
+                    <div
+                        class="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-5">
+                        <i data-lucide="image" class="w-8 h-8 text-muted"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-1">Ready to Create</h3>
+                    <p class="text-sm text-muted">Adjust controls and click generate to visualize your idea.</p>
+                </div>
+
+                <!-- Generated Image -->
+                <img id="generatedImage" class="hidden max-w-full max-h-full object-contain" alt="Generated Portrait">
+
+                <!-- Loading Overlay -->
+                <div id="loadingOverlay"
+                    class="absolute inset-0 bg-black/80 backdrop-blur-sm z-20 hidden items-center justify-center flex-col">
+                    <div class="relative w-16 h-16 mb-4">
+                        <div class="absolute inset-0 rounded-full border-2 border-primary/30"></div>
+                        <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-primary spinner">
+                        </div>
+                    </div>
+                    <div class="text-sm text-primary animate-pulse">Generating Masterpiece...</div>
+                </div>
+
+                <!-- Image Actions (visible on hover when image exists) -->
+                <div id="imageActions"
+                    class="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-3 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all z-10">
+                    <button id="downloadBtn"
+                        class="h-10 px-5 rounded-full bg-white text-black font-medium flex items-center gap-2 hover:scale-105 transition-transform shadow-xl">
+                        <i data-lucide="download" class="w-4 h-4"></i> Save
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Model Selection Modal -->
+    <div id="modelModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm">
+        <div class="bg-card border border-white/10 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
+            <h2 class="text-lg font-semibold mb-1">Select AI Model</h2>
+            <p class="text-sm text-muted mb-4">Choose the model for image generation.</p>
+            <div id="modelList" class="space-y-2 max-h-[50vh] overflow-y-auto pr-1"></div>
+            <div class="flex justify-end mt-4">
+                <button id="closeModelModal"
+                    class="px-4 py-2 text-sm text-muted hover:text-white transition-colors">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-4 right-4 z-[100] hidden max-w-sm">
+        <div class="glass rounded-xl p-4 flex items-start gap-3 shadow-xl border-l-4" id="toastContent">
+            <i data-lucide="check-circle" id="toastIcon" class="w-5 h-5 text-green-400 shrink-0 mt-0.5"></i>
+            <div>
+                <div id="toastTitle" class="font-medium text-sm">Success</div>
+                <div id="toastMessage" class="text-xs text-muted mt-0.5">Action completed.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        const MODELS = [
+            { id: 'gpt-image-1', name: 'GPT Image 1', desc: 'OpenAI • Fast & Reliable', badge: 'Recommended' },
+            { id: 'dall-e-3', name: 'DALL-E 3', desc: 'OpenAI • Artistic & Precise', quality: 'hd' },
+            { id: 'gpt-image-1-mini', name: 'GPT Image Mini', desc: 'OpenAI • Fastest' },
+            { id: 'gemini-2.5-flash-image-preview', name: 'Gemini Flash', desc: 'Google • High Quality' },
+            { id: 'black-forest-labs/FLUX.1-schnell', name: 'FLUX.1 Schnell', desc: 'Together AI • Creative' }
+        ];
+
+        const POSE_LABELS = {
+            yaw: ['LEFT PROFILE', '3/4 LEFT', 'FRONT', '3/4 RIGHT', 'RIGHT PROFILE'],
+            pitch: ['LOOK UP', 'CHIN UP', 'LEVEL', 'CHIN DOWN', 'LOOK DOWN']
+        };
+
+        const PROMPT_PHRASES = {
+            yaw: ['profile view from left side', 'three-quarter view from left', 'front facing', 'three-quarter view from right', 'profile view from right side'],
+            pitch: ['looking up', 'chin tilted up', 'level head', 'chin tilted down', 'looking down']
+        };
+
+        // ==========================================
+        // STATE
+        // ==========================================
+        const state = {
+            model: localStorage.getItem('model') || 'gpt-image-1',
+            yaw: 0,   // -2 to 2 (discrete for prompt)
+            pitch: 0, // -2 to 2 (discrete for prompt)
+            yawDegrees: 0,   // Actual degrees (-70 to +70)
+            pitchDegrees: 0, // Actual degrees (-35 to +35)
+            artStyle: 'hyperrealistic photograph, extremely detailed lighting and textures, DSLR quality, 8K resolution, sharp focus, studio photography',
+            // Camera controls
+            camRotation: 0,    // -180 to 180 degrees
+            camDistance: 2,    // 0-4 (extreme close-up to full body)
+            camAngle: 0,       // -2 to 2 (worm to bird eye)
+            camLens: 1,        // 0-3 (ultra wide to telephoto)
+            isGenerating: false
+        };
+
+        // ==========================================
+        // DOM ELEMENTS
+        // ==========================================
+        const $ = id => document.getElementById(id);
+        const els = {
+            modelBtn: $('modelBtn'),
+            selectedModelName: $('selectedModelName'),
+            promptInput: $('promptInput'),
+            charCount: $('charCount'),
+            styleContainer: $('styleContainer'),
+            resetHeadBtn: $('resetHeadBtn'),
+            headCanvas: $('headCanvas'),
+            yawValue: $('yawValue'),
+            yawDegree: $('yawDegree'),
+            pitchValue: $('pitchValue'),
+            pitchDegree: $('pitchDegree'),
+            // Camera controls
+            camRotation: $('camRotation'),
+            camRotationValue: $('camRotationValue'),
+            camDistance: $('camDistance'),
+            camDistanceValue: $('camDistanceValue'),
+            camAngle: $('camAngle'),
+            camAngleValue: $('camAngleValue'),
+            camLens: $('camLens'),
+            camLensValue: $('camLensValue'),
+            generateBtn: $('generateBtn'),
+            btnText: $('btnText'),
+            btnIcon: $('btnIcon'),
+            btnSpinner: $('btnSpinner'),
+            promptPreview: $('promptPreview'),
+            placeholder: $('placeholder'),
+            generatedImage: $('generatedImage'),
+            loadingOverlay: $('loadingOverlay'),
+            imageActions: $('imageActions'),
+            downloadBtn: $('downloadBtn'),
+            copyPromptBtn: $('copyPromptBtn'),
+            modelModal: $('modelModal'),
+            modelList: $('modelList'),
+            closeModelModal: $('closeModelModal'),
+            toast: $('toast'),
+            toastContent: $('toastContent'),
+            toastIcon: $('toastIcon'),
+            toastTitle: $('toastTitle'),
+            toastMessage: $('toastMessage')
+        };
+
+        // ==========================================
+        // THREE.JS HEAD CONTROLLER
+        // ==========================================
+        const HeadController = {
+            scene: null,
+            camera: null,
+            renderer: null,
+            headGroup: null,
+            isDragging: false,
+            prevMouse: { x: 0, y: 0 },
+            rotation: { x: 0, y: 0 },
+            targetRotation: { x: 0, y: 0 },
+            damping: 0.1,
+
+            init() {
+                const container = els.headCanvas;
+                const rect = container.getBoundingClientRect();
+                const width = rect.width || 300;
+                const height = rect.height || 180;
+
+                // Scene
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x0a0a0f);
+
+                // Camera
+                this.camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
+                this.camera.position.set(0, 0, 4);
+
+                // Renderer
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                this.renderer.setSize(width, height);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                container.appendChild(this.renderer.domElement);
+
+                // Build Head
+                this.buildHead();
+
+                // Lights
+                const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+                this.scene.add(ambient);
+
+                const mainLight = new THREE.DirectionalLight(0x8B5CF6, 1.5);
+                mainLight.position.set(2, 2, 4);
+                this.scene.add(mainLight);
+
+                const rimLight = new THREE.DirectionalLight(0x42E3F5, 0.8);
+                rimLight.position.set(-2, -1, -2);
+                this.scene.add(rimLight);
+
+                // Events
+                this.addEvents(container);
+
+                // Resize
+                new ResizeObserver(() => this.resize()).observe(container);
+
+                // Start loop
+                this.animate();
+            },
+
+            buildHead() {
+                this.headGroup = new THREE.Group();
+
+                // Create dots grid head using Points
+                const sphereGeo = new THREE.SphereGeometry(1, 24, 24);
+                sphereGeo.scale(0.9, 1.1, 0.95); // Head shape
+
+                // Create points material with custom size
+                const pointsMat = new THREE.PointsMaterial({
+                    color: 0x8B5CF6,
+                    size: 0.06,
+                    transparent: true,
+                    opacity: 0.9,
+                    sizeAttenuation: true
+                });
+
+                const headPoints = new THREE.Points(sphereGeo, pointsMat);
+                this.headGroup.add(headPoints);
+
+                // Add inner smaller dots layer for depth
+                const innerGeo = new THREE.SphereGeometry(0.85, 16, 16);
+                innerGeo.scale(0.9, 1.1, 0.95);
+                const innerMat = new THREE.PointsMaterial({
+                    color: 0x42E3F5,
+                    size: 0.04,
+                    transparent: true,
+                    opacity: 0.5,
+                    sizeAttenuation: true
+                });
+                const innerPoints = new THREE.Points(innerGeo, innerMat);
+                this.headGroup.add(innerPoints);
+
+                // Eyes as brighter dot clusters
+                const eyeGeo = new THREE.SphereGeometry(0.12, 8, 8);
+                const eyeMat = new THREE.PointsMaterial({
+                    color: 0x42E3F5,
+                    size: 0.08,
+                    transparent: true,
+                    opacity: 1
+                });
+
+                const leftEye = new THREE.Points(eyeGeo, eyeMat);
+                leftEye.position.set(-0.3, 0.15, 0.9);
+                this.headGroup.add(leftEye);
+
+                const rightEye = new THREE.Points(eyeGeo, eyeMat);
+                rightEye.position.set(0.3, 0.15, 0.9);
+                this.headGroup.add(rightEye);
+
+                // Nose indicator as a line of dots
+                const nosePositions = [];
+                for (let i = 0; i < 5; i++) {
+                    nosePositions.push(0, 0, 1.0 + i * 0.08);
+                }
+                const noseGeo = new THREE.BufferGeometry();
+                noseGeo.setAttribute('position', new THREE.Float32BufferAttribute(nosePositions, 3));
+                const noseMat = new THREE.PointsMaterial({
+                    color: 0xffffff,
+                    size: 0.05,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const nose = new THREE.Points(noseGeo, noseMat);
+                this.headGroup.add(nose);
+
+                this.scene.add(this.headGroup);
+            },
+
+            addEvents(container) {
+                container.addEventListener('mousedown', e => this.startDrag(e.clientX, e.clientY));
+                window.addEventListener('mousemove', e => this.drag(e.clientX, e.clientY));
+                window.addEventListener('mouseup', () => this.stopDrag());
+
+                container.addEventListener('touchstart', e => {
+                    e.preventDefault();
+                    this.startDrag(e.touches[0].clientX, e.touches[0].clientY);
+                }, { passive: false });
+                window.addEventListener('touchmove', e => {
+                    if (this.isDragging) {
+                        e.preventDefault();
+                        this.drag(e.touches[0].clientX, e.touches[0].clientY);
+                    }
+                }, { passive: false });
+                window.addEventListener('touchend', () => this.stopDrag());
+            },
+
+            startDrag(x, y) {
+                this.isDragging = true;
+                this.prevMouse = { x, y };
+                els.headCanvas.style.cursor = 'grabbing';
+            },
+
+            drag(x, y) {
+                if (!this.isDragging) return;
+
+                const dx = x - this.prevMouse.x;
+                const dy = y - this.prevMouse.y;
+
+                this.rotation.y += dx * 0.008;
+                this.rotation.x += dy * 0.008;
+
+                // Clamp
+                this.rotation.y = Math.max(-1.2, Math.min(1.2, this.rotation.y));
+                this.rotation.x = Math.max(-0.6, Math.min(0.6, this.rotation.x));
+
+                this.prevMouse = { x, y };
+                this.syncState();
+            },
+
+            stopDrag() {
+                this.isDragging = false;
+                els.headCanvas.style.cursor = 'grab';
+            },
+
+            syncState() {
+                // Calculate actual degrees from radians
+                // Yaw: -1.2 to 1.2 rad maps to -69° to +69° (approx -70 to +70)
+                // Pitch: -0.6 to 0.6 rad maps to -34° to +34° (approx -35 to +35)
+                const yawDegrees = Math.round((this.rotation.y / Math.PI) * 180);
+                const pitchDegrees = Math.round((this.rotation.x / Math.PI) * 180);
+
+                // Store actual degrees in state
+                state.yawDegrees = yawDegrees;
+                state.pitchDegrees = pitchDegrees;
+
+                // Map to discrete values (-2 to 2) for prompt labels
+                const yawDiscrete = Math.round((this.rotation.y / 1.2) * 2);
+                const pitchDiscrete = Math.round((this.rotation.x / 0.6) * 2);
+
+                state.yaw = yawDiscrete;
+                state.pitch = pitchDiscrete;
+                updatePoseLabels();
+                updatePromptPreview();
+            },
+
+            reset() {
+                this.rotation = { x: 0, y: 0 };
+                state.yaw = 0;
+                state.pitch = 0;
+                state.yawDegrees = 0;
+                state.pitchDegrees = 0;
+                updatePoseLabels();
+                updatePromptPreview();
+            },
+
+            resize() {
+                const container = els.headCanvas;
+                const rect = container.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) return;
+
+                this.camera.aspect = rect.width / rect.height;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(rect.width, rect.height);
+            },
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+
+                if (this.headGroup) {
+                    this.headGroup.rotation.y += (this.rotation.y - this.headGroup.rotation.y) * this.damping;
+                    this.headGroup.rotation.x += (this.rotation.x - this.headGroup.rotation.x) * this.damping;
+                }
+
+                this.renderer.render(this.scene, this.camera);
+            }
+        };
+
+        // ==========================================
+        // UI FUNCTIONS
+        // ==========================================
+        function updatePoseLabels() {
+            // Use actual continuous degree values from state
+            const yawDeg = state.yawDegrees;
+            const pitchDeg = state.pitchDegrees;
+
+            // Update degree displays with continuous values
+            els.yawDegree.textContent = `${yawDeg >= 0 ? '+' : ''}${yawDeg}°`;
+            els.pitchDegree.textContent = `${pitchDeg >= 0 ? '+' : ''}${pitchDeg}°`;
+
+            // Update text labels (based on discrete range)
+            els.yawValue.textContent = POSE_LABELS.yaw[state.yaw + 2];
+            els.pitchValue.textContent = POSE_LABELS.pitch[state.pitch + 2];
+        }
+
+        function updatePromptPreview() {
+            const subject = els.promptInput.value.trim();
+            if (!subject) {
+                els.promptPreview.value = 'Enter a subject description to see the full prompt...';
+                return;
+            }
+            // Show the full detailed prompt
+            els.promptPreview.value = buildFinalPrompt();
+        }
+
+        // Detailed pose description generator for accurate AI output
+        function getDetailedPoseDescription() {
+            const yaw = state.yawDegrees;
+            const pitch = state.pitchDegrees;
+
+            // Yaw description with degree accuracy
+            let yawDesc = '';
+            let yawShort = '';
+            if (yaw === 0) {
+                yawDesc = 'face directly facing the camera, perfectly centered front view';
+                yawShort = 'front facing';
+            } else if (yaw > 0 && yaw <= 25) {
+                yawDesc = `head slightly turned ${yaw} degrees to the right, subtle three-quarter view from right side`;
+                yawShort = 'slight right turn';
+            } else if (yaw > 25 && yaw <= 50) {
+                yawDesc = `head turned ${yaw} degrees to the right, classic three-quarter view from right side`;
+                yawShort = '3/4 view right';
+            } else if (yaw > 50) {
+                yawDesc = `head turned ${yaw} degrees to the right, near profile view from right side, showing right side of face`;
+                yawShort = 'right profile';
+            } else if (yaw < 0 && yaw >= -25) {
+                yawDesc = `head slightly turned ${Math.abs(yaw)} degrees to the left, subtle three-quarter view from left side`;
+                yawShort = 'slight left turn';
+            } else if (yaw < -25 && yaw >= -50) {
+                yawDesc = `head turned ${Math.abs(yaw)} degrees to the left, classic three-quarter view from left side`;
+                yawShort = '3/4 view left';
+            } else if (yaw < -50) {
+                yawDesc = `head turned ${Math.abs(yaw)} degrees to the left, near profile view from left side, showing left side of face`;
+                yawShort = 'left profile';
+            }
+
+            // Pitch description with degree accuracy
+            let pitchDesc = '';
+            let pitchShort = '';
+            if (pitch === 0) {
+                pitchDesc = 'head level, eyes looking straight at camera';
+                pitchShort = 'level';
+            } else if (pitch > 0 && pitch <= 15) {
+                pitchDesc = `chin tilted down ${pitch} degrees, slightly looking down`;
+                pitchShort = 'chin down';
+            } else if (pitch > 15) {
+                pitchDesc = `head tilted down ${pitch} degrees, looking down from above, top of head visible`;
+                pitchShort = 'looking down';
+            } else if (pitch < 0 && pitch >= -15) {
+                pitchDesc = `chin tilted up ${Math.abs(pitch)} degrees, slightly looking up`;
+                pitchShort = 'chin up';
+            } else if (pitch < -15) {
+                pitchDesc = `head tilted up ${Math.abs(pitch)} degrees, looking upward, underside of chin visible`;
+                pitchShort = 'looking up';
+            }
+
+            // Gaze direction description (explicit facing direction)
+            let gazeDesc = '';
+            if (yaw === 0 && pitch === 0) {
+                gazeDesc = 'eyes looking directly at camera, facing forward';
+            } else {
+                let gazeHorizontal = '';
+                let gazeVertical = '';
+
+                if (yaw > 0) {
+                    gazeHorizontal = `facing ${yaw}° to the right`;
+                } else if (yaw < 0) {
+                    gazeHorizontal = `facing ${Math.abs(yaw)}° to the left`;
+                } else {
+                    gazeHorizontal = 'facing forward';
+                }
+
+                if (pitch > 0) {
+                    gazeVertical = `looking ${pitch}° downward`;
+                } else if (pitch < 0) {
+                    gazeVertical = `looking ${Math.abs(pitch)}° upward`;
+                } else {
+                    gazeVertical = 'eye level gaze';
+                }
+
+                gazeDesc = `${gazeHorizontal}, ${gazeVertical}`;
+            }
+
+            return {
+                full: `${yawDesc}, ${pitchDesc}`,
+                short: `${yawShort}, ${pitchShort}`,
+                yaw: yawDesc,
+                pitch: pitchDesc,
+                gaze: gazeDesc
+            };
+        }
+
+        // Camera settings description generator
+        function getCameraDescription() {
+            const DISTANCE_PROMPTS = [
+                'extreme close-up shot, tight framing on face, filling the frame',
+                'close-up shot, head and shoulders visible',
+                'medium shot, waist-up framing',
+                'full body shot, entire figure visible',
+                'wide shot, subject with environment visible'
+            ];
+            const ANGLE_PROMPTS = [
+                "worm's eye view, camera looking up from below, dramatic low perspective",
+                'low angle shot, camera slightly below eye level, empowering perspective',
+                'eye level shot, camera at subject eye height, natural perspective',
+                'high angle shot, camera above looking down, diminishing perspective',
+                "bird's eye view, camera high above looking down, overhead perspective"
+            ];
+            const LENS_PROMPTS = [
+                'ultra wide angle lens 14mm, exaggerated perspective, barrel distortion, dramatic spatial depth',
+                'standard lens 50mm, natural perspective, no distortion, true-to-life proportions',
+                'portrait lens 85mm, slight compression, flattering for faces, shallow depth of field',
+                'telephoto lens 135mm, compressed perspective, background blur, isolated subject'
+            ];
+
+            let rotationDesc = '';
+            if (state.camRotation === 0) {
+                rotationDesc = 'camera positioned directly in front';
+            } else if (state.camRotation > 0) {
+                rotationDesc = `camera orbiting ${state.camRotation}° to the right of subject`;
+            } else {
+                rotationDesc = `camera orbiting ${Math.abs(state.camRotation)}° to the left of subject`;
+            }
+
+            return {
+                rotation: rotationDesc,
+                distance: DISTANCE_PROMPTS[state.camDistance],
+                angle: ANGLE_PROMPTS[state.camAngle + 2],
+                lens: LENS_PROMPTS[state.camLens]
+            };
+        }
+
+        function buildFinalPrompt() {
+            const subject = els.promptInput.value.trim();
+            const pose = getDetailedPoseDescription();
+            const camera = getCameraDescription();
+
+            // Head pose & gaze instructions
+            const posePreset = `
+HEAD POSE & GAZE:
+- ${pose.yaw}
+- ${pose.pitch}
+- ${pose.gaze}
+`.trim();
+
+            // Camera settings
+            const cameraPreset = `
+CAMERA SETTINGS:
+- Position: ${camera.rotation}
+- Framing: ${camera.distance}
+- Angle: ${camera.angle}
+- Lens: ${camera.lens}
+`.trim();
+
+            // Use selected art style from state
+            const stylePreset = state.artStyle;
+
+            return `${subject}. ${posePreset}. ${cameraPreset}. Art Style: ${stylePreset}. High quality.`;
+        }
+
+        function renderModelList() {
+            els.modelList.innerHTML = MODELS.map(m => `
+                <button class="w-full p-3 rounded-xl border text-left transition-all flex items-center gap-3 ${state.model === m.id
+                    ? 'border-primary bg-primary/10'
+                    : 'border-white/5 bg-white/5 hover:border-white/20'
+                }" onclick="selectModel('${m.id}')">
+                    <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center ${state.model === m.id ? 'border-primary' : 'border-muted'
+                }">
+                        ${state.model === m.id ? '<div class="w-2 h-2 rounded-full bg-primary"></div>' : ''}
+                    </div>
+                    <div class="flex-1">
+                        <div class="text-sm font-medium flex items-center gap-2">
+                            ${m.name}
+                            ${m.badge ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-semibold uppercase">${m.badge}</span>` : ''}
+                        </div>
+                        <div class="text-[11px] text-muted">${m.desc}</div>
+                    </div>
+                </button>
+            `).join('');
+        }
+
+        function selectModel(id) {
+            state.model = id;
+            localStorage.setItem('model', id);
+            const model = MODELS.find(m => m.id === id);
+            els.selectedModelName.textContent = model.name;
+            els.modelModal.classList.add('hidden');
+            els.modelModal.classList.remove('flex');
+            showToast('Model Changed', `Now using ${model.name}`, 'success');
+        }
+
+        function setLoading(active) {
+            state.isGenerating = active;
+            els.generateBtn.disabled = active;
+            els.btnText.textContent = active ? 'Generating...' : 'Generate Portrait';
+            els.btnIcon.classList.toggle('hidden', active);
+            els.btnSpinner.classList.toggle('hidden', !active);
+            els.loadingOverlay.classList.toggle('hidden', !active);
+            els.loadingOverlay.classList.toggle('flex', active);
+        }
+
+        function showToast(title, message, type = 'success') {
+            const colors = {
+                success: { border: 'border-green-500', icon: 'check-circle', iconColor: 'text-green-400' },
+                error: { border: 'border-red-500', icon: 'alert-circle', iconColor: 'text-red-400' },
+                info: { border: 'border-blue-500', icon: 'info', iconColor: 'text-blue-400' }
+            };
+            const c = colors[type] || colors.success;
+
+            els.toastContent.className = `glass rounded-xl p-4 flex items-start gap-3 shadow-xl border-l-4 ${c.border}`;
+            els.toastIcon.className = `w-5 h-5 shrink-0 mt-0.5 ${c.iconColor}`;
+            els.toastIcon.setAttribute('data-lucide', c.icon);
+            els.toastTitle.textContent = title;
+            els.toastMessage.textContent = message;
+
+            lucide.createIcons();
+
+            els.toast.classList.remove('hidden');
+            els.toast.classList.add('toast-enter');
+
+            setTimeout(() => {
+                els.toast.classList.remove('toast-enter');
+                els.toast.classList.add('toast-exit');
+                setTimeout(() => {
+                    els.toast.classList.add('hidden');
+                    els.toast.classList.remove('toast-exit');
+                }, 300);
+            }, 3000);
+        }
+
+        // ==========================================
+        // GENERATION
+        // ==========================================
+        async function generateImage() {
+            const prompt = els.promptInput.value.trim();
+            if (!prompt) {
+                showToast('Missing Prompt', 'Please describe your subject first.', 'error');
+                els.promptInput.focus();
+                return;
+            }
+
+            if (state.isGenerating) return;
+
+            setLoading(true);
+            console.log('Generating with model:', state.model);
+
+            try {
+                const finalPrompt = buildFinalPrompt();
+                console.log('Prompt:', finalPrompt);
+
+                // Puter.js API call
+                const modelConfig = MODELS.find(m => m.id === state.model);
+                const options = { model: state.model };
+                if (modelConfig?.quality) options.quality = modelConfig.quality;
+
+                const imgElement = await puter.ai.txt2img(finalPrompt, options);
+
+                if (!imgElement || !imgElement.src) {
+                    throw new Error('No image returned from API');
+                }
+
+                els.generatedImage.src = imgElement.src;
+                els.generatedImage.onload = () => {
+                    setLoading(false);
+                    els.placeholder.classList.add('hidden');
+                    els.generatedImage.classList.remove('hidden');
+                    showToast('Generation Complete', 'Your portrait is ready!', 'success');
+                };
+                els.generatedImage.onerror = () => {
+                    setLoading(false);
+                    showToast('Image Error', 'Failed to load the image', 'error');
+                };
+
+            } catch (err) {
+                console.error('Generation error:', err);
+                setLoading(false);
+                showToast('Generation Failed', err.message || 'Unknown error', 'error');
+            }
+        }
+
+        // ==========================================
+        // EVENT LISTENERS
+        // ==========================================
+        function setupEvents() {
+            // Model selector
+            els.modelBtn.addEventListener('click', () => {
+                renderModelList();
+                els.modelModal.classList.remove('hidden');
+                els.modelModal.classList.add('flex');
+            });
+            els.closeModelModal.addEventListener('click', () => {
+                els.modelModal.classList.add('hidden');
+                els.modelModal.classList.remove('flex');
+            });
+            els.modelModal.addEventListener('click', e => {
+                if (e.target === els.modelModal) {
+                    els.modelModal.classList.add('hidden');
+                    els.modelModal.classList.remove('flex');
+                }
+            });
+
+            // Prompt input
+            els.promptInput.addEventListener('input', () => {
+                els.charCount.textContent = els.promptInput.value.length;
+                updatePromptPreview();
+            });
+
+            // Style buttons
+            const styleBtns = els.styleContainer.querySelectorAll('.style-btn');
+            styleBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    styleBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state.artStyle = btn.dataset.prompt;
+                    updatePromptPreview();
+                });
+            });
+
+            // Reset head
+            els.resetHeadBtn.addEventListener('click', () => {
+                HeadController.reset();
+                showToast('Reset', 'Head pose reset to center', 'info');
+            });
+
+            // Camera Controls
+            const DISTANCE_LABELS = ['Extreme Close-up', 'Close-up', 'Medium', 'Full Body', 'Wide Shot'];
+            const ANGLE_LABELS = ["Worm's Eye", 'Low Angle', 'Eye Level', 'High Angle', "Bird's Eye"];
+            const LENS_LABELS = ['Ultra Wide 14mm', 'Standard 50mm', 'Portrait 85mm', 'Telephoto 135mm'];
+
+            els.camRotation.addEventListener('input', () => {
+                state.camRotation = parseInt(els.camRotation.value);
+                els.camRotationValue.textContent = `${state.camRotation}°`;
+                updatePromptPreview();
+            });
+
+            els.camDistance.addEventListener('input', () => {
+                state.camDistance = parseInt(els.camDistance.value);
+                els.camDistanceValue.textContent = DISTANCE_LABELS[state.camDistance];
+                updatePromptPreview();
+            });
+
+            els.camAngle.addEventListener('input', () => {
+                state.camAngle = parseInt(els.camAngle.value);
+                els.camAngleValue.textContent = ANGLE_LABELS[state.camAngle + 2];
+                updatePromptPreview();
+            });
+
+            els.camLens.addEventListener('input', () => {
+                state.camLens = parseInt(els.camLens.value);
+                els.camLensValue.textContent = LENS_LABELS[state.camLens];
+                updatePromptPreview();
+            });
+
+            // Generate
+            els.generateBtn.addEventListener('click', generateImage);
+
+            // Download
+            els.downloadBtn.addEventListener('click', () => {
+                if (!els.generatedImage.src) return;
+                const link = document.createElement('a');
+                link.download = `portrait-${Date.now()}.png`;
+                link.href = els.generatedImage.src;
+                link.click();
+            });
+
+            // Copy Prompt
+            els.copyPromptBtn.addEventListener('click', async () => {
+                const text = els.promptPreview.value;
+                if (!text || text === 'Enter a subject description to see the full prompt...') {
+                    showToast('Nothing to Copy', 'Enter a subject first', 'info');
+                    return;
+                }
+                try {
+                    await navigator.clipboard.writeText(text);
+                    // Update button text temporarily
+                    const btnSpan = els.copyPromptBtn.querySelector('span');
+                    const originalText = btnSpan.textContent;
+                    btnSpan.textContent = 'Copied!';
+                    els.copyPromptBtn.classList.add('text-green-400');
+                    setTimeout(() => {
+                        btnSpan.textContent = originalText;
+                        els.copyPromptBtn.classList.remove('text-green-400');
+                    }, 1500);
+                } catch (err) {
+                    showToast('Copy Failed', 'Could not copy to clipboard', 'error');
+                }
+            });
+        }
+
+        // ==========================================
+        // INIT
+        // ==========================================
+        function init() {
+            lucide.createIcons();
+
+            // Set initial model name
+            const currentModel = MODELS.find(m => m.id === state.model) || MODELS[0];
+            els.selectedModelName.textContent = currentModel.name;
+
+            updatePoseLabels();
+            updatePromptPreview();
+            setupEvents();
+
+            // Init Three.js with slight delay to ensure container has size
+            setTimeout(() => HeadController.init(), 100);
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+
+</html>
