@@ -1170,7 +1170,10 @@
         }
 
         function buildFinalPrompt() {
-            const subject = els.promptInput.value.trim();
+            // Use subject from input, or default to "A person" if empty
+            const subjectInput = els.promptInput.value.trim();
+            const subject = subjectInput || 'A person';
+
             const pose = getDetailedPoseDescription();
             const camera = getCameraDescription();
 
@@ -1274,10 +1277,12 @@ CAMERA SETTINGS:
         // GENERATION
         // ==========================================
         async function generateImage() {
-            const prompt = els.promptInput.value.trim();
-            if (!prompt) {
-                showToast('Missing Prompt', 'Please describe your subject first.', 'error');
-                els.promptInput.focus();
+            // Build the full prompt first
+            const finalPrompt = buildFinalPrompt();
+
+            // Check if we have a meaningful prompt (at least some content)
+            if (!finalPrompt || finalPrompt.trim().length < 20) {
+                showToast('Missing Information', 'Please add more details to generate.', 'error');
                 return;
             }
 
@@ -1287,10 +1292,9 @@ CAMERA SETTINGS:
             console.log('Generating with model:', state.model);
 
             try {
-                const finalPrompt = buildFinalPrompt();
-                console.log('Prompt:', finalPrompt);
+                console.log('Full Generated Prompt:', finalPrompt);
 
-                // Puter.js API call
+                // Puter.js API call - using the FULL generated prompt
                 const modelConfig = MODELS.find(m => m.id === state.model);
                 const options = { model: state.model };
                 if (modelConfig?.quality) options.quality = modelConfig.quality;
