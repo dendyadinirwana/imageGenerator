@@ -10,7 +10,17 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://js.puter.com/v2/"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Three.js with ES6 Module Support -->
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -25,13 +35,14 @@
                     },
                     colors: {
                         primary: {
-                            DEFAULT: '#8B5CF6',
+                            DEFAULT: '#324A5F',
                             foreground: '#FFFFFF',
                         },
-                        background: '#0a0a0f',
-                        card: '#111118',
-                        border: '#1e1e2e',
-                        muted: '#71717a',
+                        background: '#000000',
+                        card: '#0C1821',
+                        border: '#1B2A41',
+                        muted: '#5A7A94',
+                        accent: '#324A5F',
                     },
                 },
             },
@@ -40,8 +51,8 @@
 
     <style>
         body {
-            background: #0a0a0f;
-            color: #fafafa;
+            background: #000000;
+            color: #E8EEF2;
         }
 
         /* Custom Scrollbar */
@@ -65,9 +76,9 @@
 
         /* Glass effect */
         .glass {
-            background: rgba(17, 17, 24, 0.8);
+            background: rgba(12, 24, 33, 0.9);
             backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(50, 74, 95, 0.3);
         }
 
         /* Three.js Canvas */
@@ -77,9 +88,9 @@
 
         /* Style Buttons */
         .style-btn.active {
-            border-color: #8B5CF6;
-            background: rgba(139, 92, 246, 0.15);
-            color: #8B5CF6;
+            border-color: #324A5F;
+            background: rgba(50, 74, 95, 0.3);
+            color: #7BA3C4;
         }
 
         /* ==========================================
@@ -212,7 +223,7 @@
 
         .hover-lift:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 40px -10px rgba(139, 92, 246, 0.3);
+            box-shadow: 0 10px 40px -10px rgba(50, 74, 95, 0.5);
         }
 
         /* Pulse Glow Animation */
@@ -220,11 +231,11 @@
 
             0%,
             100% {
-                box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+                box-shadow: 0 0 20px rgba(50, 74, 95, 0.4);
             }
 
             50% {
-                box-shadow: 0 0 40px rgba(139, 92, 246, 0.5);
+                box-shadow: 0 0 40px rgba(50, 74, 95, 0.7);
             }
         }
 
@@ -325,6 +336,17 @@
             to {
                 transform: rotate(360deg);
             }
+        }
+
+        /* Generate Button Hover Effect */
+        #generateBtn:hover {
+            background: #1B2A41 !important;
+            box-shadow: 0 6px 30px rgba(27, 42, 65, 0.5) !important;
+            transform: translateY(-2px);
+        }
+
+        #generateBtn:active {
+            transform: translateY(0) scale(0.98);
         }
     </style>
 </head>
@@ -530,7 +552,8 @@
 
             <!-- Generate Button -->
             <button id="generateBtn"
-                class="w-full h-12 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-[0.98] animate-fade-in-up stagger-6 animate-pulse-glow btn-press">
+                class="w-full rounded-xl text-white font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98] animate-fade-in-up stagger-6 btn-press"
+                style="background: #0C1821; height: 52px; box-shadow: 0 4px 20px rgba(12, 24, 33, 0.4);">
                 <span id="btnText">Generate Portrait</span>
                 <i data-lucide="wand-2" id="btnIcon" class="w-4 h-4"></i>
                 <div id="btnSpinner" class="hidden w-4 h-4 spinner"></div>
@@ -624,7 +647,10 @@
     </div>
 
     <!-- Application Script -->
-    <script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
         // ==========================================
         // CONFIGURATION
         // ==========================================
@@ -732,7 +758,8 @@
 
                 // Scene
                 this.scene = new THREE.Scene();
-                this.scene.background = new THREE.Color(0x0a0a0f);
+                this.scene.background = new THREE.Color(0x000000);
+                this.scene.fog = new THREE.FogExp2(0x000000, 0.15); // Depth fog
 
                 // Camera
                 this.camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
@@ -759,6 +786,38 @@
                 rimLight.position.set(-2, -1, -2);
                 this.scene.add(rimLight);
 
+                // Create custom grid with LineSegments for better visibility
+                const gridSize = 4;
+                const gridDivisions = 16;
+                const gridStep = gridSize / gridDivisions;
+                const gridVertices = [];
+                const gridColor = new THREE.Color(0x00ffff);
+
+                // Create horizontal lines
+                for (let i = 0; i <= gridDivisions; i++) {
+                    const z = -gridSize / 2 + i * gridStep;
+                    gridVertices.push(-gridSize / 2, -0.8, z);
+                    gridVertices.push(gridSize / 2, -0.8, z);
+                }
+
+                // Create vertical lines
+                for (let i = 0; i <= gridDivisions; i++) {
+                    const x = -gridSize / 2 + i * gridStep;
+                    gridVertices.push(x, -0.8, -gridSize / 2);
+                    gridVertices.push(x, -0.8, gridSize / 2);
+                }
+
+                const gridGeometry = new THREE.BufferGeometry();
+                gridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(gridVertices, 3));
+                const gridMaterial = new THREE.LineBasicMaterial({
+                    color: gridColor,
+                    opacity: 0.8,
+                    transparent: true,
+                    fog: false // Don't let fog affect the grid
+                });
+                const grid = new THREE.LineSegments(gridGeometry, gridMaterial);
+                this.scene.add(grid);
+
                 // Events
                 this.addEvents(container);
 
@@ -772,70 +831,90 @@
             buildHead() {
                 this.headGroup = new THREE.Group();
 
-                // Create dots grid head using Points
-                const sphereGeo = new THREE.SphereGeometry(1, 24, 24);
-                sphereGeo.scale(0.9, 1.1, 0.95); // Head shape
+                // Generate sprite texture for glowing dots
+                const spriteTexture = this.generateSprite();
 
-                // Create points material with custom size
+                // Create glowing point material
                 const pointsMat = new THREE.PointsMaterial({
-                    color: 0x8B5CF6,
-                    size: 0.06,
+                    color: 0x00ffff,       // Cyan neon color
+                    size: 0.025,           // Small dot size for detail
+                    map: spriteTexture,
                     transparent: true,
                     opacity: 0.9,
+                    blending: THREE.AdditiveBlending, // Glow effect
+                    depthWrite: false,
                     sizeAttenuation: true
                 });
 
-                const headPoints = new THREE.Points(sphereGeo, pointsMat);
-                this.headGroup.add(headPoints);
+                // Load realistic head model
+                const loader = new GLTFLoader();
+                const modelUrl = 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/LeePerrySmith/LeePerrySmith.glb';
 
-                // Add inner smaller dots layer for depth
-                const innerGeo = new THREE.SphereGeometry(0.85, 16, 16);
-                innerGeo.scale(0.9, 1.1, 0.95);
-                const innerMat = new THREE.PointsMaterial({
-                    color: 0x42E3F5,
-                    size: 0.04,
-                    transparent: true,
-                    opacity: 0.5,
-                    sizeAttenuation: true
+                loader.load(modelUrl, (gltf) => {
+                    const mesh = gltf.scene.children[0];
+                    const geometry = mesh.geometry;
+                    geometry.center();
+
+                    // Create point cloud from head geometry
+                    const headPoints = new THREE.Points(geometry, pointsMat);
+                    headPoints.scale.set(0.35, 0.35, 0.35);
+                    headPoints.rotation.y = Math.PI; // Face forward
+
+                    this.headGroup.add(headPoints);
+
+                    // Add inner glow layer
+                    const innerMat = new THREE.PointsMaterial({
+                        color: 0x324A5F,
+                        size: 0.015,
+                        map: spriteTexture,
+                        transparent: true,
+                        opacity: 0.5,
+                        blending: THREE.AdditiveBlending,
+                        depthWrite: false,
+                        sizeAttenuation: true
+                    });
+                    const innerPoints = new THREE.Points(geometry, innerMat);
+                    innerPoints.scale.set(0.33, 0.33, 0.33);
+                    innerPoints.rotation.y = Math.PI;
+                    this.headGroup.add(innerPoints);
+
+                }, undefined, (error) => {
+                    console.error('Failed to load head model:', error);
+                    // Fallback to simple sphere
+                    this.buildFallbackHead(pointsMat);
                 });
-                const innerPoints = new THREE.Points(innerGeo, innerMat);
-                this.headGroup.add(innerPoints);
-
-                // Eyes as brighter dot clusters
-                const eyeGeo = new THREE.SphereGeometry(0.12, 8, 8);
-                const eyeMat = new THREE.PointsMaterial({
-                    color: 0x42E3F5,
-                    size: 0.08,
-                    transparent: true,
-                    opacity: 1
-                });
-
-                const leftEye = new THREE.Points(eyeGeo, eyeMat);
-                leftEye.position.set(-0.3, 0.15, 0.9);
-                this.headGroup.add(leftEye);
-
-                const rightEye = new THREE.Points(eyeGeo, eyeMat);
-                rightEye.position.set(0.3, 0.15, 0.9);
-                this.headGroup.add(rightEye);
-
-                // Nose indicator as a line of dots
-                const nosePositions = [];
-                for (let i = 0; i < 5; i++) {
-                    nosePositions.push(0, 0, 1.0 + i * 0.08);
-                }
-                const noseGeo = new THREE.BufferGeometry();
-                noseGeo.setAttribute('position', new THREE.Float32BufferAttribute(nosePositions, 3));
-                const noseMat = new THREE.PointsMaterial({
-                    color: 0xffffff,
-                    size: 0.05,
-                    transparent: true,
-                    opacity: 0.8
-                });
-                const nose = new THREE.Points(noseGeo, noseMat);
-                this.headGroup.add(nose);
 
                 this.scene.add(this.headGroup);
             },
+
+            // Fallback if model fails to load
+            buildFallbackHead(material) {
+                const sphereGeo = new THREE.SphereGeometry(1, 32, 32);
+                sphereGeo.scale(0.9, 1.1, 0.95);
+                const headPoints = new THREE.Points(sphereGeo, material);
+                this.headGroup.add(headPoints);
+            },
+
+            // Generate glowing sprite texture
+            generateSprite() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 64;
+                canvas.height = 64;
+                const ctx = canvas.getContext('2d');
+
+                // Radial gradient for glow effect
+                const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+                gradient.addColorStop(0, 'rgba(255,255,255,1)');
+                gradient.addColorStop(0.2, 'rgba(0,255,255,1)');
+                gradient.addColorStop(0.5, 'rgba(50,74,95,0.5)');
+                gradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 64, 64);
+
+                return new THREE.CanvasTexture(canvas);
+            },
+
 
             addEvents(container) {
                 container.addEventListener('mousedown', e => this.startDrag(e.clientX, e.clientY));
@@ -1061,7 +1140,7 @@
             ];
             const ANGLE_PROMPTS = [
                 "worm's eye view, camera looking up from below, dramatic low perspective",
-                'low angle shot, camera slightly below eye level, empowering perspective',
+                'low angleshot, camera slightly below eye level, empowering perspective',
                 'eye level shot, camera at subject eye height, natural perspective',
                 'high angle shot, camera above looking down, diminishing perspective',
                 "bird's eye view, camera high above looking down, overhead perspective"
@@ -1123,7 +1202,7 @@ CAMERA SETTINGS:
                 <button class="w-full p-3 rounded-xl border text-left transition-all flex items-center gap-3 ${state.model === m.id
                     ? 'border-primary bg-primary/10'
                     : 'border-white/5 bg-white/5 hover:border-white/20'
-                }" onclick="selectModel('${m.id}')">
+                }" onclick="window.selectModel('${m.id}')">
                     <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center ${state.model === m.id ? 'border-primary' : 'border-muted'
                 }">
                         ${state.model === m.id ? '<div class="w-2 h-2 rounded-full bg-primary"></div>' : ''}
@@ -1148,6 +1227,9 @@ CAMERA SETTINGS:
             els.modelModal.classList.remove('flex');
             showToast('Model Changed', `Now using ${model.name}`, 'success');
         }
+
+        // Expose selectModel globally for onclick handlers
+        window.selectModel = selectModel;
 
         function setLoading(active) {
             state.isGenerating = active;
@@ -1370,6 +1452,7 @@ CAMERA SETTINGS:
 
         document.addEventListener('DOMContentLoaded', init);
     </script>
+
 </body>
 
 </html>
